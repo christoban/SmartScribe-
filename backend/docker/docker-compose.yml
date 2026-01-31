@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: smartscribe_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    networks:
+      - smartscribe_network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: smartscribe_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - smartscribe_network
+
+  # API FastAPI
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: smartscribe_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../storage:/app/storage
+    environment:
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      # GROQ_API_KEY=... (à injecter via .env ou variables)
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - smartscribe_network
+
+  # Worker Celery
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    container_name: smartscribe_worker
+    restart: unless-stopped
+    volumes:
+      - ../storage:/app/storage
+    environment:
+      - MONGO_URI=mongodb://admin:password@mongodb:27017/?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      # GROQ_API_KEY=... (à injecter via .env ou variables)
+    depends_on:
+      - mongodb
+      - redis
+      - api
+    networks:
+      - smartscribe_network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  smartscribe_network:
+    driver: bridge

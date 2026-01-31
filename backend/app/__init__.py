@@ -1,0 +1,2 @@
+"""SmartScribe backend application package."""
+

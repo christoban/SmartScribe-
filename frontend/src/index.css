@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  background-color: #0f121d; /* Le noir de ton dashboard */
+  color: white;
+}
