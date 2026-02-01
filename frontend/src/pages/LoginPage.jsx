@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { LogIn, Mail, Lock } from 'lucide-react'
 import api from '../api/client.jsx'
+import { useUser } from '../contexts/UserContext.jsx' // 🔧 AJOUT  
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
@@ -9,6 +10,8 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const { fetchUser } = useUser() // 🔧 AJOUT  
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,6 +31,9 @@ const LoginPage = () => {
       if (refresh_token) {
         localStorage.setItem('refresh_token', refresh_token)
       }
+
+      // 🔧 AJOUT : Charger les infos utilisateur après login  
+      await fetchUser()  
 
       navigate('/upload', { replace: true })
     } catch (err) {

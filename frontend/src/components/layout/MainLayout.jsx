@@ -1,13 +1,23 @@
 import { NavLink, useLocation, Outlet } from 'react-router-dom'
-import { Bell, Mic, FileAudio, Video, FileText, History, Settings, LayoutDashboard } from 'lucide-react'
-
-const navItemClasses =
-  'flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 cursor-pointer transition text-sm font-medium'
+import { Bell, Mic, FileAudio, Video, FileText, History, Settings, LayoutDashboard, LogOut, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { useUser } from '../../contexts/UserContext.jsx' // 🔧 AJOUT  
 
 const MainLayout = () => {
   const location = useLocation()
+  const { user, logout } = useUser() // 🔧 AJOUT  
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
 
   const isActive = (path) => location.pathname.startsWith(path)
+
+  const navItemClasses = 'flex items-center gap-3 px-4 py-2.5 rounded-lg transition text-sm font-medium hover:bg-white/5'  
+  
+  // 🔧 AJOUT : Handler de déconnexion  
+  const handleLogout = () => {  
+    logout()  
+    window.location.href = '/login'  
+  }  
 
   return (
     <div className="flex h-screen bg-[#0f121d] text-white font-sans overflow-hidden">
@@ -111,14 +121,39 @@ const MainLayout = () => {
               Transformez vos cours et médias en notes intelligentes.
             </p>
           </div>
-          <div className="flex gap-4 items-center">
-            <div className="p-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">
-              <Bell size={20} />
-            </div>
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full border-2 border-gray-700 shadow-lg" />
+          <div className="flex gap-4 items-center">  
+            <div className="p-2 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition">  
+              <Bell size={20} />  
+            </div>  
+              
+            {/* Menu utilisateur */}  
+            <div className="relative">  
+              <button  
+                onClick={() => setShowUserMenu(!showUserMenu)}  
+                className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition"  
+              >  
+                <div className="w-8 h-8 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full border-2 border-gray-700" />  
+                <span className="text-sm font-medium">{user?.full_name || user?.email || 'Utilisateur'}</span>  
+                <ChevronDown size={16} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />  
+              </button>  
+                
+              {showUserMenu && (  
+                <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">  
+                  <div className="p-3 border-b border-gray-700">  
+                    <p className="text-xs text-gray-400">Connecté en tant que</p>  
+                    <p className="text-sm font-medium truncate">{user?.email}</p>  
+                  </div>  
+                  <button onClick={handleLogout}  
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-gray-700 transition"
+                    >  
+                    <LogOut size={16} />  
+                    Déconnexion  
+                  </button>  
+                </div>  
+              )}  
+            </div>  
           </div>
         </header>
-
         <Outlet />
       </main>
     </div>

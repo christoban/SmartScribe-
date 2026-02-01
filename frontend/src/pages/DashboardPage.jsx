@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Activity, FileText, Radio, History } from 'lucide-react'
 import api from '../api/client.jsx'
+import { useUser } from '../contexts/UserContext.jsx' // 🔧 AJOUT  
 
 const DashboardPage = () => {
   const [health, setHealth] = useState(null)
   const [mediaCount, setMediaCount] = useState(null)
   const [notesCount, setNotesCount] = useState(null)
+  const { user } = useUser() // 🔧 AJOUT  
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,22 +31,21 @@ const DashboardPage = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <section>
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <Activity size={20} className="text-green-400" />
-          État du système
-        </h2>
-        <div className="grid grid-cols-3 gap-4">
-          <StatCard
-            label="API SmartScribe"
-            value={health?.status === 'healthy' ? 'En ligne' : 'Inconnue'}
-            badge={health?.status}
-          />
-          <StatCard label="Médias traités" value={mediaCount ?? '…'} />
-          <StatCard label="Notes générées" value={notesCount ?? '…'} />
-        </div>
+      <section>  
+        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">  
+          <Activity size={20} className="text-green-400" />  
+          Bonjour {user?.full_name || user?.email?.split('@')[0] || 'Utilisateur'} 👋  
+        </h2>  
+        <div className="grid grid-cols-3 gap-4">  
+          <StatCard  
+            label="API SmartScribe"  
+            value={health?.status === 'healthy' ? 'En ligne' : 'Inconnue'}  
+            badge={health?.status}  
+          />  
+          <StatCard label="Médias traités" value={mediaCount ?? '…'} />  
+          <StatCard label="Notes générées" value={notesCount ?? '…'} />  
+        </div>  
       </section>
-
       <section>
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
           <Radio size={20} className="text-blue-400" />

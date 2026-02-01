@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, FileAudio, Video, FileText, History, Download, Mic } from 'lucide-react'
+import { Upload, FileAudio, Video, FileText, History, Download, Mic, Loader2 } from 'lucide-react'
+
 import api from '../api/client.jsx'
 
-const ALLOWED_EXT = ['mp4', 'mp3', 'wav', 'm4a', 'mov', 'webm', 'mkv']
+const ALLOWED_MEDIA_EXT = ['mp4', 'mp3', 'wav', 'm4a', 'mov', 'webm', 'mkv']
+const ALLOWED_DOC_EXT = ['pdf', 'docx', 'txt', 'doc']
 
 const UploadPage = () => {
   const [mediaId, setMediaId] = useState(null)
   const [status, setStatus] = useState('idle')
   const [progress, setProgress] = useState(0)
+  const [exportingFormat, setExportingFormat] = useState(null) // 'pdf', 'docx', 'txt' ou null
   const [originalName, setOriginalName] = useState('')
   const [history, setHistory] = useState([])
+  const [uploadType, setUploadType] = useState(null) // 'media' ou 'document'
 
   // progression simulée
   useEffect(() => {
@@ -38,24 +42,25 @@ const UploadPage = () => {
         const res = await api.get('/media/')
         setHistory(res.data)
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('Erreur historique:', err)
       }
     }
     fetchHistory()
   }, [status])
 
-  const handleFileUpload = async (e) => {
+  // 🔧 NOUVEAU : Handler pour upload de médias (audio/vidéo)
+  const handleMediaUpload = async (e) => {
     const selectedFile = e.target.files?.[0]
     if (!selectedFile || status === 'processing') return
 
     const ext = selectedFile.name.split('.').pop().toLowerCase()
-    if (!ALLOWED_EXT.includes(ext)) {
-      alert(`Format .${ext} non supporté par l'API /media/upload`)
+    if (!ALLOWED_MEDIA_EXT.includes(ext)) {
+      alert(`Format .${ext} non supporté pour les médias. Formats acceptés : ${ALLOWED_MEDIA_EXT.join(', ')}`)
       return
     }
 
     setOriginalName(selectedFile.name)
+    setUploadType('media')
     const formData = new FormData()
     formData.append('file', selectedFile)
 
@@ -66,11 +71,72 @@ const UploadPage = () => {
       setMediaId(response.data.id)
       setStatus('processing')
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err)
-      alert("Erreur lors de l'envoi du fichier.")
+      alert("Erreur lors de l'envoi du fichier média.")
       setStatus('idle')
     }
+  }
+
+  // 🔧 NOUVEAU : Handler pour upload de documents (PDF/DOCX/TXT)
+  const handleDocumentUpload = async (e) => {
+    const selectedFile = e.target.files?.[0]
+    if (!selectedFile || status === 'processing') return
+
+    const ext = selectedFile.name.split('.').pop().toLowerCase()
+    if (!ALLOWED_DOC_EXT.includes(ext)) {
+      alert(`Format .${ext} non supporté pour les documents. Formats acceptés : ${ALLOWED_DOC_EXT.join(', ')}`)
+      return
+    }
+
+    setOriginalName(selectedFile.name)
+    setUploadType('document')
+    const formData = new FormData()
+    formData.append('file', selectedFile)
+
+    try {
+      setStatus('uploading')
+      setProgress(10)
+      const response = await api.post('/documents/upload', formData)
+      setMediaId(response.data.id)
+      setStatus('processing')
+    } catch (err) {
+      console.error(err)
+      alert("Erreur lors de l'envoi du document.")
+      setStatus('idle')
+    }
+  }
+
+  const handleExport = async (format) => {  
+    if (!mediaId || status !== 'ready' || exportingFormat) return  
+      
+    setExportingFormat(format)  
+      
+    try {  
+      // 1. Récupérer la note associée au media_id  
+      const notesRes = await api.get(`/notes/?transcription_id=${mediaId}`)  
+        
+      if (!notesRes.data || notesRes.data.length === 0) {  
+        alert("Aucune note trouvée pour ce média. Générez d'abord les notes.")  
+        setExportingFormat(null)  
+        return  
+      }  
+        
+      const noteId = notesRes.data[0].id  
+        
+      // 2. Créer l'export  
+      const exportRes = await api.post(`/export/${noteId}?format=${format}`)  
+      const exportId = exportRes.data.id  
+        
+      // 3. Télécharger le fichier  
+      const downloadUrl = `/export/${exportId}/download`  
+      window.open(`${api.defaults.baseURL}${downloadUrl}`, '_blank')  
+        
+    } catch (err) {  
+      console.error('Erreur export:', err)  
+      alert(`Erreur lors de l'export ${format.toUpperCase()}`)  
+    } finally {  
+      setExportingFormat(null)  
+    }  
   }
 
   const isReady = status === 'ready'
@@ -91,7 +157,7 @@ const UploadPage = () => {
           title="Audio / Vidéo"
           desc="Importez vos enregistrements."
           btnColor="bg-blue-600"
-          onClick={() => document.getElementById('fileInput').click()}
+          onClick={() => document.getElementById('mediaInput').click()}
           disabled={status === 'processing'}
         />
         <ActionCard
@@ -99,23 +165,39 @@ const UploadPage = () => {
           title="Documents"
           desc="Analysez vos PDF, DOCX, TXT."
           btnColor="bg-green-600"
-          disabled
+          onClick={() => document.getElementById('documentInput').click()}
+          disabled={status === 'processing'}
         />
       </div>
 
-      {/* Zone de dépôt */}
+      {/* 🔧 NOUVEAU : Input séparé pour médias */}
       <input
-        id="fileInput"
+        id="mediaInput"
         type="file"
         hidden
-        onChange={handleFileUpload}
+        onChange={handleMediaUpload}
         disabled={status === 'processing'}
-        accept="video/*,audio/*,.pdf,.docx,.txt"
+        accept="video/*,audio/*"
+      />
+
+      {/* 🔧 NOUVEAU : Input séparé pour documents */}
+      <input
+        id="documentInput"
+        type="file"
+        hidden
+        onChange={handleDocumentUpload}
+        disabled={status === 'processing'}
+        accept=".pdf,.docx,.txt,.doc"
       />
 
       <motion.div
         whileHover={status === 'idle' ? { scale: 1.005 } : {}}
-        onClick={() => status === 'idle' && document.getElementById('fileInput').click()}
+        onClick={() => {
+          if (status === 'idle') {
+            // Par défaut, ouvrir le sélecteur de médias
+            document.getElementById('mediaInput').click()
+          }
+        }}
         className={`max-w-5xl mx-auto w-full border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center backdrop-blur-sm mb-8 transition-all ${
           status === 'idle'
             ? 'border-gray-800 bg-[#161b2c]/30 cursor-pointer hover:border-blue-500/50'
@@ -129,6 +211,11 @@ const UploadPage = () => {
         <h2 className="text-lg font-medium text-gray-300">
           {status === 'idle' ? 'Glissez un média ou document' : originalName}
         </h2>
+        {status !== 'idle' && uploadType && (
+          <p className="text-xs text-gray-500 mt-2">
+            Type : {uploadType === 'media' ? 'Média (Audio/Vidéo)' : 'Document (PDF/DOCX/TXT)'}
+          </p>
+        )}
       </motion.div>
 
       {/* Barre de statut */}
@@ -147,9 +234,28 @@ const UploadPage = () => {
             />
           </div>
         </div>
-        <div className="flex gap-3 ml-8">
-          <ExportButton label="PDF" disabled={!isReady || !mediaId} />
-          <ExportButton label="DOCX" disabled={!isReady || !mediaId} />
+        <div className="flex gap-3 ml-8">  
+          <ExportButton   
+            label="PDF"   
+            format="pdf"  
+            disabled={!isReady || !mediaId}   
+            loading={exportingFormat === 'pdf'}  
+            onClick={() => handleExport('pdf')}  
+          />  
+          <ExportButton   
+            label="DOCX"   
+            format="docx"  
+            disabled={!isReady || !mediaId}   
+            loading={exportingFormat === 'docx'}  
+            onClick={() => handleExport('docx')}  
+          />  
+          <ExportButton   
+            label="TXT"   
+            format="txt"  
+            disabled={!isReady || !mediaId}   
+            loading={exportingFormat === 'txt'}  
+            onClick={() => handleExport('txt')}  
+          />  
         </div>
       </div>
 
@@ -167,7 +273,9 @@ const UploadPage = () => {
               >
                 <div className="flex items-center gap-4">
                   <div className="p-2 bg-gray-800 rounded-lg group-hover:text-blue-400">
-                    {item.media_type === 'video' ? <Video size={18} /> : <FileAudio size={18} />}
+                    {item.media_type === 'video' ? <Video size={18} /> : 
+                     item.media_type === 'document' ? <FileText size={18} /> : 
+                     <FileAudio size={18} />}
                   </div>
                   <div>
                     <p className="font-semibold text-sm">{item.filename}</p>
@@ -214,16 +322,27 @@ const ActionCard = ({ icon, title, desc, btnColor, onClick, disabled }) => (
   </div>
 )
 
-const ExportButton = ({ label, disabled }) => (
-  <button
-    disabled={disabled}
-    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition border border-gray-700 ${
-      disabled ? 'bg-gray-900 text-gray-600 cursor-not-allowed' : 'bg-gray-800 text-white hover:bg-gray-700'
-    }`}
-  >
-    <Download size={14} /> {label}
-  </button>
+const ExportButton = ({ label, format, disabled, loading, onClick }) => (  
+  <button  
+    disabled={disabled || loading}  
+    onClick={onClick}  
+    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition border border-gray-700 ${  
+      disabled || loading   
+        ? 'bg-gray-900 text-gray-600 cursor-not-allowed'   
+        : 'bg-gray-800 text-white hover:bg-gray-700'  
+    }`}  
+  >  
+    {loading ? (  
+      <>  
+        <Loader2 size={14} className="animate-spin" />  
+        Export...  
+      </>  
+    ) : (  
+      <>  
+        <Download size={14} /> {label}  
+      </>  
+    )}  
+  </button>  
 )
 
 export default UploadPage
-

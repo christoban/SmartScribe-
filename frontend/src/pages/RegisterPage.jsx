@@ -16,13 +16,27 @@ const RegisterPage = () => {
     e.preventDefault()
     setError(null)
 
+    // Validation : correspondance des mots de passe
     if (password !== confirmPassword) {
       setError('Les mots de passe ne correspondent pas.')
       return
     }
 
+    // Validation : longueur minimale du mot de passe
     if (password.length < 8) {
       setError('Le mot de passe doit contenir au moins 8 caractères.')
+      return
+    }
+
+    // 🔧 AMÉLIORATION : Validation de full_name si fourni
+    if (fullName && fullName.trim().length > 0 && fullName.trim().length < 2) {
+      setError('Le nom complet doit contenir au moins 2 caractères.')
+      return
+    }
+
+    // 🔧 AMÉLIORATION : Validation de full_name si trop long
+    if (fullName && fullName.trim().length > 100) {
+      setError('Le nom complet ne peut pas dépasser 100 caractères.')
       return
     }
 
@@ -30,18 +44,27 @@ const RegisterPage = () => {
     try {
       await api.post('/auth/register', {
         email,
-        full_name: fullName || undefined,
+        // 🔧 AMÉLIORATION : Envoyer null au lieu de undefined si vide
+        full_name: fullName.trim() || null,
         password,
       })
 
       // Rediriger vers la page de connexion
       navigate('/login', { replace: true })
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err)
-      const message =
-        err?.response?.data?.detail || "Impossible de créer le compte. Essayez un autre email."
-      setError(message)
+      
+      // 🔧 AMÉLIORATION : Messages d'erreur plus spécifiques
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail
+      
+      if (status === 400 && detail?.includes('email')) {
+        setError('Cet email est déjà enregistré.')
+      } else if (status === 422) {
+        setError('Données invalides. Vérifiez vos informations.')
+      } else {
+        setError(detail || "Impossible de créer le compte. Essayez un autre email.")
+      }
     } finally {
       setLoading(false)
     }
@@ -139,4 +162,3 @@ const RegisterPage = () => {
 }
 
 export default RegisterPage
-

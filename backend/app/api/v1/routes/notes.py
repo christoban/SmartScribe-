@@ -142,3 +142,22 @@ async def regenerate_note(
 
     # Tu pourras brancher ici un vrai pipeline plus tard
     return {"status": "regenerating", "note_id": note_id}
+
+@router.get("/", response_model=List[NoteOut])  
+async def list_notes(  
+    skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),  
+    limit: int = Query(20, ge=1, le=100, description="Nombre d'éléments à retourner"),  
+    transcription_id: Optional[str] = None,  
+    current_user=Depends(get_current_user),  
+    db=Depends(get_database),  
+):  
+    """Liste toutes les notes de l'utilisateur avec pagination"""  
+    repo_note = NoteRepository(db)  
+  
+    if transcription_id:  
+        # Si transcription_id fourni, on filtre par transcription  
+        # Note: get_by_transcription_id ne supporte pas skip/limit actuellement  
+        return await repo_note.get_by_transcription_id(transcription_id, str(current_user.id))  
+  
+    # Pagination pour toutes les notes de l'utilisateur  
+    return await repo_note.get_user_notes(str(current_user.id), skip=skip, limit=limit)
